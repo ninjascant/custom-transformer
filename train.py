@@ -17,8 +17,15 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger(__name__)
 
 
-def run(model_out_file, transformer_config, batch_size, min_freq, lr, n_epochs, clip, show_progress):
-    preprocessor = EnDePreprocessor(transformer_config['device'], batch_size, min_freq)
+def run(model_out_file, out_src_vocab_file, out_tgt_vocab_file, transformer_config, batch_size, min_freq, lr,
+        n_epochs, clip, show_progress):
+    preprocessor = EnDePreprocessor(
+        transformer_config['device'],
+        batch_size,
+        min_freq,
+        out_src_vocab_file,
+        out_tgt_vocab_file
+    )
     preprocessor.fit_transform()
 
     input_dim = len(preprocessor.src.vocab)
@@ -59,8 +66,8 @@ def run(model_out_file, transformer_config, batch_size, min_freq, lr, n_epochs, 
             torch.save(model.state_dict(), model_out_file)
 
         logger.info(f'Epoch: {epoch + 1:02} | Time: {epoch_mins}m {epoch_secs}s')
-        logger.info(f'\tTrain Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f}')
-        logger.info(f'\t Val. Loss: {valid_loss:.3f} |  Val. PPL: {math.exp(valid_loss):7.3f}')
+        logger.info(f'Train Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f}')
+        logger.info(f'Val. Loss: {valid_loss:.3f} |  Val. PPL: {math.exp(valid_loss):7.3f}')
 
     test_loss = evaluate(model, preprocessor.test_iter, criterion)
     logger.info(f'| Test Loss: {test_loss:.3f} | Test PPL: {math.exp(test_loss):7.3f} |')
@@ -69,6 +76,8 @@ def run(model_out_file, transformer_config, batch_size, min_freq, lr, n_epochs, 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('out_model_file', type=str, help='The file to which model will be saved')
+    parser.add_argument('out_src_vocab_file', type=str, help='The file to which src vocab will be saved')
+    parser.add_argument('out_tgt_vocab_file', type=str, help='The file to which src vocab will be saved')
     parser.add_argument('--batch_size', type=int, default=None, help='Batch size', required=False)
     parser.add_argument('--lr', type=float, default=None, help='Learning rate', required=False)
     parser.add_argument('--n_epochs', type=int, default=None, help='Epoch number', required=False)
@@ -102,4 +111,4 @@ if __name__ == '__main__':
         if getattr(args, arg):
             train_config[arg] = getattr(args, arg)
 
-    run(args.out_model_file, model_config, **train_config)
+    run(args.out_model_file, args.out_src_vocab_file, args.out_tgt_vocab_file, model_config, **train_config)

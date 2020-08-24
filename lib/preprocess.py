@@ -62,13 +62,16 @@ def read_vocab(path):
 
 
 class EnDePreprocessor:
-    def __init__(self, device, batch_size, min_freq):
+    def __init__(self, device, batch_size, min_freq, out_src_vocab_file, out_tgt_vocab_file):
         self.device = device
         self.batch_size = batch_size
         self.min_freq = min_freq
 
         self.spacy_de = load_spacy('de')
         self.spacy_en = load_spacy('en')
+
+        self.out_src_vocab_file = out_src_vocab_file
+        self.out_tgt_vocab_file = out_tgt_vocab_file
 
         self.src = None
         self.tgt = None
@@ -101,8 +104,8 @@ class EnDePreprocessor:
         logger.info('Start building tokenizer')
         train_tokenizer(self.src, self.tgt, train_data, self.min_freq)
         logger.info('Saving tokenizer vocabs')
-        save_vocab(self.src.vocab, 'de_vocab.txt')
-        save_vocab(self.tgt.vocab, 'en_vocab.txt')
+        save_vocab(self.src.vocab, self.out_src_vocab_file)
+        save_vocab(self.tgt.vocab, self.out_tgt_vocab_file)
 
         self.train_iter, self.val_iter, self.test_iter = get_iterators(
             train_data,

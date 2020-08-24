@@ -1,7 +1,7 @@
 import de_core_news_sm
 import torch
-from preprocess import read_vocab
-from transformer import CustomTransformer
+from lib.preprocess import read_vocab
+from lib.transformer import CustomTransformer
 
 
 def translate_sentence(sentence, nlp, model, device, src_stoi, tgt_stoi, tgt_itos, max_len=50):
@@ -55,10 +55,11 @@ class DeTransalator:
 
         src_pad_idx = self.de_vocab_stoi['<pad>']
         tgt_pad_idx = self.en_vocab_stoi['<pad>']
-        input_dim = len(self.de_vocab_stoi)
+        input_dim = 7854 # len(self.de_vocab_stoi)
         output_dim = len(self.en_vocab_stoi)
         self.model = CustomTransformer(src_pad_idx, tgt_pad_idx, input_dim, output_dim, **transformer_config)
-        self.model.load_state_dict(torch.load(model_weights_file))
+
+        self.model.load_state_dict(torch.load(model_weights_file, map_location=torch.device(device)))
 
         self.device = device
         self.max_len = max_len

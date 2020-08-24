@@ -1,0 +1,7 @@
+en_core_web_sm==2.3.1
+de_core_news_sm==2.3.0
+tqdm==4.48.2
+torchtext==0.7.0
+spacy==2.3.2
+torch==1.6.0
+PyYAML==5.3.1
