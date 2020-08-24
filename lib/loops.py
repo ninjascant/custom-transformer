@@ -30,8 +30,8 @@ def train(model, iterator, optimizer, criterion, clip, show_progress):
         batch_iterator = enumerate(iterator)
 
     for i, batch in batch_iterator:
-        src = batch.src
-        tgt = batch.trg
+        src = batch['src']
+        tgt = batch['tgt']
 
         optimizer.zero_grad()
         output, tgt = forward_pass(model, src, tgt)
@@ -54,8 +54,8 @@ def evaluate(model, iterator, criterion):
 
     with torch.no_grad():
         for i, batch in enumerate(iterator):
-            src = batch.src
-            tgt = batch.trg
+            src = batch['src']
+            tgt = batch['tgt']
 
             output, tgt = forward_pass(model, src, tgt)
             loss = criterion(output, tgt)

@@ -1,4 +1,3 @@
-import de_core_news_sm
 import torch
 from lib.preprocess import read_vocab
 from lib.transformer import CustomTransformer

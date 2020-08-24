@@ -17,22 +17,25 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger(__name__)
 
 
-def run(model_out_file, out_src_vocab_file, out_tgt_vocab_file, transformer_config, batch_size, min_freq, lr,
+def run(model_out_file, out_src_vocab_file, out_tgt_vocab_file, transformer_config, batch_size, lr,
         n_epochs, clip, show_progress):
+    data_path = '.data/multi30k'
     preprocessor = EnDePreprocessor(
         transformer_config['device'],
         batch_size,
-        min_freq,
         out_src_vocab_file,
-        out_tgt_vocab_file
+        out_tgt_vocab_file,
+        data_path,
+        'de',
+        'en',
     )
     preprocessor.fit_transform()
 
-    input_dim = len(preprocessor.src.vocab)
-    output_dim = len(preprocessor.tgt.vocab)
+    input_dim = preprocessor.src_tokenizer.get_vocab_size()
+    output_dim = preprocessor.tgt_tokenizer.get_vocab_size()
 
-    src_pad_idx = preprocessor.src.vocab.stoi[preprocessor.src.pad_token]
-    tgt_pad_idx = preprocessor.tgt.vocab.stoi[preprocessor.tgt.pad_token]
+    src_pad_idx = preprocessor.src_pad_idx
+    tgt_pad_idx = preprocessor.tgt_pad_idx
 
     model = CustomTransformer(
         src_pad_idx,
