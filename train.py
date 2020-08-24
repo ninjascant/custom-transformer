@@ -33,7 +33,7 @@ def run(model_out_file, transformer_config, batch_size, min_freq, lr, n_epochs, 
         input_dim,
         output_dim,
         **transformer_config
-    )
+    ).to(transformer_config['device'])
     model.apply(initialize_weights)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -56,7 +56,7 @@ def run(model_out_file, transformer_config, batch_size, min_freq, lr, n_epochs, 
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
             logger.info('Saving model')
-            torch.save(model.state_dict(), 'model.pt')
+            torch.save(model.state_dict(), model_out_file)
 
         logger.info(f'Epoch: {epoch + 1:02} | Time: {epoch_mins}m {epoch_secs}s')
         logger.info(f'\tTrain Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f}')
