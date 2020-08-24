@@ -85,6 +85,10 @@ def get_loader(src, tgt, device='cpu', batch_size=8, do_shuffle=True):
     return DataLoader(dataset, batch_size=batch_size, shuffle=do_shuffle)
 
 
+def tokenize_text(spacy_instance, text):
+    return [tok.text for tok in spacy_instance.tokenizer(text)]
+
+
 class EnDePreprocessor:
     def __init__(self, device, batch_size, out_src_vocab_file, out_tgt_vocab_file, data_path,
                  src_file_name, tgt_file_name, vocab_size=32000, do_lower=True, max_len=50):
@@ -106,14 +110,23 @@ class EnDePreprocessor:
         self.val_iter = None
         self.test_iter = None
 
+    def _tokenize_en(self, text):
+        return tokenize_text(self.spacy_en, text)
+
+    def _tokenize_de(self, text):
+        return tokenize_text(self.spacy_de, text)
+
     def _load_data(self):
-        self.src = Field(tokenize=self.tokenize_de,
+        self.spacy_de = load_spacy('de')
+        self.spacy_en = load_spacy('en')
+        
+        self.src = Field(tokenize=self._tokenize_de,
                          init_token='<sos>',
                          eos_token='<eos>',
                          lower=True,
                          batch_first=True)
 
-        self.tgt = Field(tokenize=self.tokenize_en,
+        self.tgt = Field(tokenize=self._tokenize_en,
                          init_token='<sos>',
                          eos_token='<eos>',
                          lower=True,
