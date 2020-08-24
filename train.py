@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger(__name__)
 
 
-def run(transformer_config, batch_size, min_freq, lr, n_epochs, clip, show_progress):
+def run(model_out_file, transformer_config, batch_size, min_freq, lr, n_epochs, clip, show_progress):
     preprocessor = EnDePreprocessor(transformer_config['device'], batch_size, min_freq)
     preprocessor.fit_transform()
 
@@ -68,6 +68,7 @@ def run(transformer_config, batch_size, min_freq, lr, n_epochs, clip, show_progr
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('out_model_file', type=str, help='The file to which model will be saved')
     parser.add_argument('--batch_size', type=int, default=None, help='Batch size', required=False)
     parser.add_argument('--lr', type=float, default=None, help='Learning rate', required=False)
     parser.add_argument('--n_epochs', type=int, default=None, help='Epoch number', required=False)
@@ -101,4 +102,4 @@ if __name__ == '__main__':
         if getattr(args, arg):
             train_config[arg] = getattr(args, arg)
 
-    run(model_config, **train_config)
+    run(args.out_model_file, model_config, **train_config)
