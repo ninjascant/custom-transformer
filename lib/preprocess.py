@@ -43,7 +43,7 @@ def train_tokenizer(tokenizer_class, train_file_path, vocab_size, do_lower):
 
 
 def save_tokenizer(tokenizer, out_path):
-    tokenizer.save(out_path)
+    tokenizer.save_model(out_path)
 
 
 def read_data(data_path):
@@ -119,7 +119,7 @@ class EnDePreprocessor:
     def _load_data(self):
         self.spacy_de = load_spacy('de')
         self.spacy_en = load_spacy('en')
-        
+
         self.src = Field(tokenize=self._tokenize_de,
                          init_token='<sos>',
                          eos_token='<eos>',

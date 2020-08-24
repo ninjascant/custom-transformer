@@ -1,22 +1,16 @@
 import torch
-from lib.preprocess import read_vocab
+from tokenizers import BertWordPieceTokenizer
+# from lib.preprocess import read_vocab
 from lib.transformer import CustomTransformer
 
 
-def translate_sentence(sentence, nlp, model, device, src_stoi, tgt_stoi, tgt_itos, max_len=50):
-    tgt_init_token = tgt_stoi['<sos>']
-    tgt_eos_token = tgt_stoi['<eos>']
+def translate_sentence(sentence, model, device, src_tokenizer, tgt_tokenizer, max_len=50):
+    tgt_init_token = tgt_tokenizer.encode('<sos>').ids[0]
+    tgt_eos_token = tgt_tokenizer.encode('<eos>').ids[0]
 
     model.eval()
 
-    if isinstance(sentence, str):
-        tokens = [token.text.lower() for token in nlp(sentence)]
-    else:
-        tokens = [token.lower() for token in sentence]
-
-    tokens = ['<sos>'] + tokens + ['<eos>']
-
-    src_indexes = [src_stoi.get(token, src_stoi['<unk>']) for token in tokens]
+    src_indexes = src_tokenizer.encode(sentence).ids # [src_stoi.get(token, src_stoi['<unk>']) for token in tokens]
     src_tensor = torch.LongTensor(src_indexes).unsqueeze(0).to(device)
     src_mask = model.make_src_mask(src_tensor)
 
@@ -39,23 +33,24 @@ def translate_sentence(sentence, nlp, model, device, src_stoi, tgt_stoi, tgt_ito
         if pred_token == tgt_eos_token:
             break
 
-    trg_tokens = [tgt_itos[i] for i in trg_indexes]
+    trg_tokens = tgt_tokenizer.decode(trg_indexes)
 
-    return trg_tokens[1:], attention
+    return trg_tokens, attention
 
 
 class DeTransalator:
     def __init__(self, transformer_config, device, max_len, de_vocab_file, en_vocab_file, model_weights_file):
-        self.nlp = de_core_news_sm.load()
+        self.src_tokenizer = self._load_tokenizer(de_vocab_file)
+        self.tgt_tokenizer = self._load_tokenizer(en_vocab_file)
 
-        self.de_vocab_stoi = read_vocab(de_vocab_file)
-        self.en_vocab_stoi = read_vocab(en_vocab_file)
-        self.en_vocab_itos = {self.en_vocab_stoi[key]: key for key in self.en_vocab_stoi.keys()}
+        # self.de_vocab_stoi = read_vocab(de_vocab_file)
+        # self.en_vocab_stoi = read_vocab(en_vocab_file)
+        # self.en_vocab_itos = {self.en_vocab_stoi[key]: key for key in self.en_vocab_stoi.keys()}
 
-        src_pad_idx = self.de_vocab_stoi['<pad>']
-        tgt_pad_idx = self.en_vocab_stoi['<pad>']
-        input_dim = len(self.de_vocab_stoi)
-        output_dim = len(self.en_vocab_stoi)
+        src_pad_idx = self.src_tokenizer.encode('<pad>').ids[0]
+        tgt_pad_idx = self.tgt_tokenizer.encode('<pad>').ids[0]
+        input_dim = self.src_tokenizer.get_vocab_size() + 2
+        output_dim = self.tgt_tokenizer.get_vocab_size() + 1
         self.model = CustomTransformer(src_pad_idx, tgt_pad_idx, input_dim, output_dim, **transformer_config)
 
         self.model.load_state_dict(torch.load(model_weights_file, map_location=torch.device(device)))
@@ -63,14 +58,15 @@ class DeTransalator:
         self.device = device
         self.max_len = max_len
 
+    def _load_tokenizer(self, vocab_file):
+        return BertWordPieceTokenizer(vocab_file, lowercase=True)
+
     def predict(self, sentence):
         return translate_sentence(
             sentence,
-            self.nlp,
             self.model,
             self.device,
-            self.de_vocab_stoi,
-            self.en_vocab_stoi,
-            self.en_vocab_itos,
+            self.src_tokenizer,
+            self.tgt_tokenizer,
             self.max_len
         )
