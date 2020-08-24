@@ -1,5 +1,8 @@
 import logging
 import os
+import spacy
+from torchtext.datasets import Multi30k
+from torchtext.data import Field
 import torch
 from torch.utils.data import Dataset, DataLoader
 from tokenizers import BertWordPieceTokenizer
@@ -10,6 +13,25 @@ logger = logging.getLogger(__name__)
 START_TOKEN = '<sos>'
 END_TOKEN = '<eos>'
 PAD_TOKEN = '<pad>'
+
+
+def load_spacy(module):
+    if module == 'en':
+        try:
+            nlp = spacy.load('en')
+        except OSError:
+            import en_core_web_sm
+            nlp = en_core_web_sm.load()
+    elif module == 'de':
+        try:
+            nlp = spacy.load('de')
+        except OSError:
+            import de_core_news_sm
+            nlp = de_core_news_sm.load()
+    else:
+        raise NotImplementedError
+
+    return nlp
 
 
 def train_tokenizer(tokenizer_class, train_file_path, vocab_size, do_lower):
@@ -84,9 +106,24 @@ class EnDePreprocessor:
         self.val_iter = None
         self.test_iter = None
 
+    def _load_data(self):
+        self.src = Field(tokenize=self.tokenize_de,
+                         init_token='<sos>',
+                         eos_token='<eos>',
+                         lower=True,
+                         batch_first=True)
+
+        self.tgt = Field(tokenize=self.tokenize_en,
+                         init_token='<sos>',
+                         eos_token='<eos>',
+                         lower=True,
+                         batch_first=True)
+        logger.info('Start loading data')
+        _ = Multi30k.splits(exts=('.de', '.en'),
+                            fields=(self.src, self.tgt))
 
     def _read_data(self):
-        logger.info('Start loading data')
+        logger.info('Start reading data')
         src_train_data = read_data(os.path.join(self.data_path, f'train.{self.src_file_name}'))
         tgt_train_data = read_data(os.path.join(self.data_path, f'train.{self.tgt_file_name}'))
 
@@ -150,5 +187,6 @@ class EnDePreprocessor:
         save_tokenizer(self.tgt_tokenizer, self.out_tgt_vocab_file)
 
     def fit_transform(self):
+        self._load_data()
         self._build_tokenizers()
         self._read_data()
