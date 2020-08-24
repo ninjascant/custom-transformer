@@ -17,7 +17,7 @@ def translate_sentence(sentence, nlp, model, device, src_stoi, tgt_stoi, tgt_ito
 
     tokens = ['<sos>'] + tokens + ['<eos>']
 
-    src_indexes = [src_stoi[token] for token in tokens]
+    src_indexes = [src_stoi.get(token, src_stoi['<unk>']) for token in tokens]
     src_tensor = torch.LongTensor(src_indexes).unsqueeze(0).to(device)
     src_mask = model.make_src_mask(src_tensor)
 
@@ -55,7 +55,7 @@ class DeTransalator:
 
         src_pad_idx = self.de_vocab_stoi['<pad>']
         tgt_pad_idx = self.en_vocab_stoi['<pad>']
-        input_dim = 7854 # len(self.de_vocab_stoi)
+        input_dim = len(self.de_vocab_stoi)
         output_dim = len(self.en_vocab_stoi)
         self.model = CustomTransformer(src_pad_idx, tgt_pad_idx, input_dim, output_dim, **transformer_config)
 

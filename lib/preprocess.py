@@ -92,12 +92,12 @@ class EnDePreprocessor:
                     eos_token='<eos>',
                     lower=True,
                     batch_first=True)
-
         self.tgt = Field(tokenize=self.tokenize_en,
                     init_token='<sos>',
                     eos_token='<eos>',
                     lower=True,
                     batch_first=True)
+
         logger.info('Start loading data')
         train_data, valid_data, test_data = Multi30k.splits(exts=('.de', '.en'),
                                                             fields=(self.src, self.tgt))
