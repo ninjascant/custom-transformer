@@ -25,9 +25,7 @@ def run(model_out_file, out_src_vocab_file, out_tgt_vocab_file, transformer_conf
         batch_size,
         out_src_vocab_file,
         out_tgt_vocab_file,
-        data_path,
-        'de',
-        'en',
+        'WMT'
     )
     preprocessor.fit_transform()
 

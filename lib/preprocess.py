@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import requests
 import tarfile
 from sklearn.model_selection import train_test_split
@@ -81,7 +82,7 @@ class EnDePreprocessor:
         self.max_len = max_len
 
         self.src_file_name = '.data/data.de'
-        self.tgt_file_name = '.data/data.de'
+        self.tgt_file_name = '.data/data.en'
 
         self.device = device
         self.batch_size = batch_size
@@ -94,6 +95,8 @@ class EnDePreprocessor:
         self.test_iter = None
 
     def _download_dataset(self, url):
+        if os.path.isdir('.data'):
+            shutil.rmtree('.data')
         os.mkdir('.data')
         res = requests.get(url, allow_redirects=True)
         with open('.data/data.tgz', 'wb') as file:
@@ -101,13 +104,18 @@ class EnDePreprocessor:
         tar = tarfile.open('.data/data.tgz', "r:gz")
         tar.extractall()
         tar.close()
-        os.remove('.data/data/tgz')
+
+        os.remove('.data/data.tgz')
 
     def _load_data(self):
-        if self.dataset_name == 'WMT':
-            self._download_dataset(WMT_URL)
-            os.rename('.data/europarl-v7.de-en.de', self.src_file_name)
-            os.rename('.data/europarl-v7.de-en.en', self.tgt_file_name)
+        if not os.path.isfile('.data/data.de'):
+            logger.info('Start downloading dataset')
+            if self.dataset_name == 'WMT':
+                self._download_dataset(WMT_URL)
+                os.rename('europarl-v7.de-en.de', self.src_file_name)
+                os.rename('europarl-v7.de-en.en', self.tgt_file_name)
+        else:
+            logger.info('Using cached dataset')
 
     def _read_data_sample(self, file_name, sample_size):
         with open(file_name, 'r') as file:
@@ -123,12 +131,13 @@ class EnDePreprocessor:
         src_sample = src_sample[:-20_000]
         tgt_sample = tgt_sample[:-20_000]
 
-        self.src_train, self.tgt_train, self.src_val, self.tgt_val = train_test_split(src_sample,
+        self.src_train, self.src_val, self.tgt_train, self.tgt_val = train_test_split(src_sample,
                                                                                       tgt_sample,
-                                                                                      val_size=0.2)
-        with open('.data/src_train.txt') as outfile:
+                                                                                      test_size=0.2)
+
+        with open('.data/src_train.txt', 'w') as outfile:
             outfile.writelines(self.src_train)
-        with open('.data/tgt_train.txt') as outfile:
+        with open('.data/tgt_train.txt', 'w') as outfile:
             outfile.writelines(self.tgt_train)
 
     def _build_tokenizers(self):
@@ -153,6 +162,17 @@ class EnDePreprocessor:
         save_tokenizer(self.src_tokenizer, self.out_src_vocab_file)
         logger.info(f'Saving tgt tokenizer vocab to {self.out_tgt_vocab_file}')
         save_tokenizer(self.tgt_tokenizer, self.out_tgt_vocab_file)
+
+    def _tokenize_data(self):
+        logger.info('Start tokenizing data')
+        self.src_train = tokenize_examples(self.src_tokenizer, self.src_train, 50, self.src_pad_idx)
+        self.tgt_train = tokenize_examples(self.tgt_tokenizer, self.tgt_train, 50, self.tgt_pad_idx)
+
+        self.src_val = tokenize_examples(self.src_tokenizer, self.src_val, 50, self.src_pad_idx)
+        self.tgt_val = tokenize_examples(self.tgt_tokenizer, self.tgt_val, 50, self.tgt_pad_idx)
+
+        self.src_test = tokenize_examples(self.src_tokenizer, self.src_test, 50, self.src_pad_idx)
+        self.tgt_test = tokenize_examples(self.tgt_tokenizer, self.tgt_test, 50, self.tgt_pad_idx)
 
     def _get_loaders(self):
         self.train_iter = get_loader(
@@ -179,5 +199,7 @@ class EnDePreprocessor:
 
     def fit_transform(self):
         self._load_data()
+        self._get_data_split(220_000)
         self._build_tokenizers()
-        self._get_data_split(120_000)
+        self._tokenize_data()
+        self._get_loaders()
