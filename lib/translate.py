@@ -49,8 +49,8 @@ class DeTransalator:
 
         src_pad_idx = self.src_tokenizer.encode('<pad>').ids[0]
         tgt_pad_idx = self.tgt_tokenizer.encode('<pad>').ids[0]
-        input_dim = self.src_tokenizer.get_vocab_size() + 2
-        output_dim = self.tgt_tokenizer.get_vocab_size() + 1
+        input_dim = self.src_tokenizer.get_vocab_size() + 3
+        output_dim = self.tgt_tokenizer.get_vocab_size() + 3
         self.model = CustomTransformer(src_pad_idx, tgt_pad_idx, input_dim, output_dim, **transformer_config)
 
         self.model.load_state_dict(torch.load(model_weights_file, map_location=torch.device(device)))
