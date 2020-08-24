@@ -11,7 +11,7 @@ from lib.transformer import CustomTransformer, initialize_weights
 from lib.loops import train, evaluate, epoch_time
 from lib.utils import LOG_FORMAT, TRAIN_ARGS, load_config, str2bool, set_file_logger
 
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.INFO,
                     format=LOG_FORMAT,
                     )
 logger = logging.getLogger(__name__)

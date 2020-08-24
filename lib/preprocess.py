@@ -1,7 +1,7 @@
 import logging
 import os
 import spacy
-from torchtext.datasets import Multi30k
+from torchtext.datasets import Multi30k, WMT14
 from torchtext.data import Field
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -131,8 +131,12 @@ class EnDePreprocessor:
                          eos_token='<eos>',
                          lower=True,
                          batch_first=True)
+
         logger.info('Start loading data')
-        _ = Multi30k.splits(exts=('.de', '.en'),
+        # _ = Multi30k.splits(exts=('.de', '.en'),
+        #                     fields=(self.src, self.tgt))
+
+        _ = WMT14.splits(exts=('.de', '.en'),
                             fields=(self.src, self.tgt))
 
     def _read_data(self):
