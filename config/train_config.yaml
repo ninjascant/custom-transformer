@@ -1,0 +1,6 @@
+batch_size: 32
+lr: 0.0005
+n_epochs: 10
+clip: 1
+min_freq: 2
+show_progress: true
