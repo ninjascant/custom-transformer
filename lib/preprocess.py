@@ -1,8 +1,8 @@
 import logging
 import os
-import spacy
-from torchtext.datasets import Multi30k, WMT14
-from torchtext.data import Field
+import requests
+import tarfile
+from sklearn.model_selection import train_test_split
 import torch
 from torch.utils.data import Dataset, DataLoader
 from tokenizers import BertWordPieceTokenizer
@@ -14,24 +14,7 @@ START_TOKEN = '<sos>'
 END_TOKEN = '<eos>'
 PAD_TOKEN = '<pad>'
 
-
-def load_spacy(module):
-    if module == 'en':
-        try:
-            nlp = spacy.load('en')
-        except OSError:
-            import en_core_web_sm
-            nlp = en_core_web_sm.load()
-    elif module == 'de':
-        try:
-            nlp = spacy.load('de')
-        except OSError:
-            import de_core_news_sm
-            nlp = de_core_news_sm.load()
-    else:
-        raise NotImplementedError
-
-    return nlp
+WMT_URL = 'https://www.statmt.org/europarl/v7/de-en.tgz'
 
 
 def train_tokenizer(tokenizer_class, train_file_path, vocab_size, do_lower):
@@ -90,14 +73,15 @@ def tokenize_text(spacy_instance, text):
 
 
 class EnDePreprocessor:
-    def __init__(self, device, batch_size, out_src_vocab_file, out_tgt_vocab_file, data_path,
-                 src_file_name, tgt_file_name, vocab_size=32000, do_lower=True, max_len=50):
-        self.data_path = data_path
-        self.src_file_name = src_file_name
-        self.tgt_file_name = tgt_file_name
+    def __init__(self, device, batch_size, out_src_vocab_file, out_tgt_vocab_file, dataset_name, vocab_size=32000,
+                 do_lower=True, max_len=50):
+        self.dataset_name = dataset_name
         self.vocab_size = vocab_size
         self.do_lower = do_lower
         self.max_len = max_len
+
+        self.src_file_name = '.data/data.de'
+        self.tgt_file_name = '.data/data.de'
 
         self.device = device
         self.batch_size = batch_size
@@ -105,96 +89,63 @@ class EnDePreprocessor:
         self.out_src_vocab_file = out_src_vocab_file
         self.out_tgt_vocab_file = out_tgt_vocab_file
 
-
         self.train_iter = None
         self.val_iter = None
         self.test_iter = None
 
-    def _tokenize_en(self, text):
-        return tokenize_text(self.spacy_en, text)
-
-    def _tokenize_de(self, text):
-        return tokenize_text(self.spacy_de, text)
+    def _download_dataset(self, url):
+        os.mkdir('.data')
+        res = requests.get(url, allow_redirects=True)
+        with open('.data/data.tgz', 'wb') as file:
+            file.write(res.content)
+        tar = tarfile.open('.data/data.tgz', "r:gz")
+        tar.extractall()
+        tar.close()
+        os.remove('.data/data/tgz')
 
     def _load_data(self):
-        self.spacy_de = load_spacy('de')
-        self.spacy_en = load_spacy('en')
+        if self.dataset_name == 'WMT':
+            self._download_dataset(WMT_URL)
+            os.rename('.data/europarl-v7.de-en.de', self.src_file_name)
+            os.rename('.data/europarl-v7.de-en.en', self.tgt_file_name)
 
-        self.src = Field(tokenize=self._tokenize_de,
-                         init_token='<sos>',
-                         eos_token='<eos>',
-                         lower=True,
-                         batch_first=True)
+    def _read_data_sample(self, file_name, sample_size):
+        with open(file_name, 'r') as file:
+            sample = [next(file) for _ in range(sample_size)]
+        return sample
 
-        self.tgt = Field(tokenize=self._tokenize_en,
-                         init_token='<sos>',
-                         eos_token='<eos>',
-                         lower=True,
-                         batch_first=True)
+    def _get_data_split(self, sample_size, val_size=0.2, test_size=0.2):
+        src_sample = self._read_data_sample(self.src_file_name, sample_size)
+        tgt_sample = self._read_data_sample(self.tgt_file_name, sample_size)
 
-        logger.info('Start loading data')
-        # _ = Multi30k.splits(exts=('.de', '.en'),
-        #                     fields=(self.src, self.tgt))
+        self.src_test = src_sample[-20_000:]
+        self.tgt_test = src_sample[-20_000:]
+        src_sample = src_sample[:-20_000]
+        tgt_sample = tgt_sample[:-20_000]
 
-        _ = WMT14.splits(exts=('.de', '.en'),
-                            fields=(self.src, self.tgt))
-
-    def _read_data(self):
-        logger.info('Start reading data')
-        src_train_data = read_data(os.path.join(self.data_path, f'train.{self.src_file_name}'))
-        tgt_train_data = read_data(os.path.join(self.data_path, f'train.{self.tgt_file_name}'))
-
-        src_val_data = read_data(os.path.join(self.data_path, f'val.{self.src_file_name}'))
-        tgt_val_data = read_data(os.path.join(self.data_path, f'val.{self.tgt_file_name}'))
-
-        src_test_data = read_data(os.path.join(self.data_path, f'test2016.{self.src_file_name}'))
-        tgt_test_data = read_data(os.path.join(self.data_path, f'test2016.{self.tgt_file_name}'))
-
-        src_train_data = tokenize_examples(self.src_tokenizer, src_train_data, self.max_len, self.src_pad_idx)
-        src_val_data = tokenize_examples(self.src_tokenizer, src_val_data, self.max_len, self.src_pad_idx)
-        src_test_data = tokenize_examples(self.src_tokenizer, src_test_data, self.max_len, self.src_pad_idx)
-
-        tgt_train_data = tokenize_examples(self.tgt_tokenizer, tgt_train_data, self.max_len, self.tgt_pad_idx)
-        tgt_val_data = tokenize_examples(self.tgt_tokenizer, tgt_val_data, self.max_len, self.tgt_pad_idx)
-        tgt_test_data = tokenize_examples(self.tgt_tokenizer, tgt_test_data, self.max_len, self.tgt_pad_idx)
-
-        self.train_iter = get_loader(
-            src_train_data,
-            tgt_train_data,
-            device=self.device,
-            batch_size=self.batch_size,
-            do_shuffle=True
-        )
-        self.val_iter = get_loader(
-            src_val_data,
-            tgt_val_data,
-            device=self.device,
-            batch_size=self.batch_size,
-            do_shuffle=False
-        )
-        self.test_iter = get_loader(
-            src_test_data,
-            tgt_test_data,
-            device=self.device,
-            batch_size=self.batch_size,
-            do_shuffle=False
-        )
-
+        self.src_train, self.tgt_train, self.src_val, self.tgt_val = train_test_split(src_sample,
+                                                                                      tgt_sample,
+                                                                                      val_size=0.2)
+        with open('.data/src_train.txt') as outfile:
+            outfile.writelines(self.src_train)
+        with open('.data/tgt_train.txt') as outfile:
+            outfile.writelines(self.tgt_train)
 
     def _build_tokenizers(self):
         logger.info('Start building tokenizer')
         self.src_tokenizer = train_tokenizer(
             BertWordPieceTokenizer,
-            os.path.join(self.data_path, f'train.{self.src_file_name}'),
+            '.data/src_train.txt',
             self.vocab_size,
             self.do_lower
         )
         self.tgt_tokenizer = train_tokenizer(
             BertWordPieceTokenizer,
-            os.path.join(self.data_path, f'train.{self.tgt_file_name}'),
+            '.data/tgt_train.txt',
             self.vocab_size,
             self.do_lower
         )
+
         self.src_pad_idx = self.src_tokenizer.encode('<pad>').ids[0]
         self.tgt_pad_idx = self.tgt_tokenizer.encode('<pad>').ids[0]
 
@@ -203,7 +154,30 @@ class EnDePreprocessor:
         logger.info(f'Saving tgt tokenizer vocab to {self.out_tgt_vocab_file}')
         save_tokenizer(self.tgt_tokenizer, self.out_tgt_vocab_file)
 
+    def _get_loaders(self):
+        self.train_iter = get_loader(
+            self.src_train,
+            self.tgt_train,
+            device=self.device,
+            batch_size=self.batch_size,
+            do_shuffle=True
+        )
+        self.val_iter = get_loader(
+            self.src_val,
+            self.tgt_val,
+            device=self.device,
+            batch_size=self.batch_size,
+            do_shuffle=False
+        )
+        self.test_iter = get_loader(
+            self.src_test,
+            self.tgt_test,
+            device=self.device,
+            batch_size=self.batch_size,
+            do_shuffle=False
+        )
+
     def fit_transform(self):
         self._load_data()
         self._build_tokenizers()
-        self._read_data()
+        self._get_data_split(120_000)
