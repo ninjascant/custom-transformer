@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from lib.model.attention import MultiHeadAttentionLayer, PositionwiseFeedforwardLayer
-from lib.model.encoder import Encoder
-from lib.model.decoder import Decoder
+from .model.attention import MultiHeadAttentionLayer, PositionwiseFeedforwardLayer
+from .model.encoder import Encoder
+from .model.decoder import Decoder
 
 
 class CustomTransformer(nn.Module):
