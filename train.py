@@ -7,7 +7,7 @@ import time
 import torch
 import torch.nn as nn
 from lib.preprocess import EnDePreprocessor
-from lib.transformer import CustomTransformer, initialize_weights
+from lib.transformer import initialize_weights, BasicTransformer
 from lib.loops import train, evaluate, epoch_time
 from lib.utils import LOG_FORMAT, TRAIN_ARGS, load_config, str2bool, set_file_logger
 
@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 def run(model_out_file, out_src_vocab_file, out_tgt_vocab_file, transformer_config, batch_size, lr,
         n_epochs, clip, show_progress):
-    data_path = '.data/multi30k'
     preprocessor = EnDePreprocessor(
         transformer_config['device'],
         batch_size,
@@ -29,20 +28,20 @@ def run(model_out_file, out_src_vocab_file, out_tgt_vocab_file, transformer_conf
     )
     preprocessor.fit_transform()
 
-    input_dim = preprocessor.src_tokenizer.get_vocab_size()
-    output_dim = preprocessor.tgt_tokenizer.get_vocab_size()
-
     src_pad_idx = preprocessor.src_pad_idx
     tgt_pad_idx = preprocessor.tgt_pad_idx
 
-    model = CustomTransformer(
+    src_vocab_size = preprocessor.src_tokenizer.get_vocab_size()
+    tgt_vocab_size = preprocessor.tgt_tokenizer.get_vocab_size()
+
+    model = BasicTransformer(
         src_pad_idx,
         tgt_pad_idx,
-        input_dim,
-        output_dim,
+        src_vocab_size,
+        tgt_vocab_size,
         **transformer_config
     ).to(transformer_config['device'])
-    model.apply(initialize_weights)
+    # model.apply(initialize_weights)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss(ignore_index=tgt_pad_idx)
@@ -51,7 +50,6 @@ def run(model_out_file, out_src_vocab_file, out_tgt_vocab_file, transformer_conf
 
     logger.info(f'Start training model for {n_epochs} epochs')
     for epoch in range(n_epochs):
-
         start_time = time.time()
 
         train_loss = train(model, preprocessor.train_iter, optimizer, criterion, clip, show_progress)

@@ -1,16 +1,15 @@
 import torch
 from tokenizers import BertWordPieceTokenizer
-# from lib.preprocess import read_vocab
 from lib.transformer import CustomTransformer
 
 
 def translate_sentence(sentence, model, device, src_tokenizer, tgt_tokenizer, max_len=50):
+    model.eval()
+
     tgt_init_token = tgt_tokenizer.encode('<sos>').ids[0]
     tgt_eos_token = tgt_tokenizer.encode('<eos>').ids[0]
 
-    model.eval()
-
-    src_indexes = src_tokenizer.encode(sentence).ids # [src_stoi.get(token, src_stoi['<unk>']) for token in tokens]
+    src_indexes = src_tokenizer.encode(sentence).ids
     src_tensor = torch.LongTensor(src_indexes).unsqueeze(0).to(device)
     src_mask = model.make_src_mask(src_tensor)
 
@@ -42,10 +41,6 @@ class DeTransalator:
     def __init__(self, transformer_config, device, max_len, de_vocab_file, en_vocab_file, model_weights_file):
         self.src_tokenizer = self._load_tokenizer(de_vocab_file)
         self.tgt_tokenizer = self._load_tokenizer(en_vocab_file)
-
-        # self.de_vocab_stoi = read_vocab(de_vocab_file)
-        # self.en_vocab_stoi = read_vocab(en_vocab_file)
-        # self.en_vocab_itos = {self.en_vocab_stoi[key]: key for key in self.en_vocab_stoi.keys()}
 
         src_pad_idx = self.src_tokenizer.encode('<pad>').ids[0]
         tgt_pad_idx = self.tgt_tokenizer.encode('<pad>').ids[0]
